@@ -36,7 +36,6 @@ wheels = [
 
 [[package]]
 name = "group-text"
-version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "django" },

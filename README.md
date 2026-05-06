@@ -13,3 +13,7 @@ Since this is SMS based, I wanted to move from the standard username login, so p
 | ORM Capability | Sophisticated, handles complex M2M relationships natively. | SQLAlchemy is powerful but requires more boilerplate. |
 | HTMX Integration | Seamless through template partials and django-htmx. | Possible, but requires more manual template management. |
 | Security | Comprehensive CSRF and SQL injection protection by default. | Requires manual middleware configuration. |
+
+For this proof of concept, I went with HTMX and Alpine.js instead of a heavy SPA. It kept things lean by letting me skip the overhead of managing a separate JSON API and a complex JavaScript build pipeline. Since the backend handles the UI state through server-side rendering, I could ship the core features without the boilerplate of a full frontend framework.
+
+While this setup is perfect for speed and simplicity right now, the plan for an enterprise-scale version is to split the frontend into its own dedicated project. Decoupling would allow for more specialized scaling, better team autonomy, and a more robust interface once the initial concept is proven.
