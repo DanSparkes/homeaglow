@@ -7,6 +7,8 @@ dependencies = [
     "django==5.2.14",
     "django-environ==0.13.0",
     "psycopg[binary]==3.3.4",
+    "pytest-django==4.12.0",
+    "pytest-cov==7.1.0",
 ]
 
 [tool.setuptools.packages.find]
@@ -40,6 +42,18 @@ warn_return_any = true
 
 [tool.django-stubs]
 django_settings_module = "group_text.settings"
+
+[tool.coverage.run]
+branch = true
+source = ["group_text"]
+omit = [
+    "group_text/asgi.py",
+    "group_text/wsgi.py",
+]
+
+[tool.coverage.report]
+skip_covered = false
+show_missing = true
 
 [[tool.mypy.overrides]]
 module = ["group_text.migrations.*"]

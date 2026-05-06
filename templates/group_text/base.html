@@ -10,9 +10,7 @@
 
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <script src="https://unpkg.com/htmx.org@1.9.12"
-          integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2uFgATIODeJd6PHfAByBHEFHkUqcvXdR2y/"
-          crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/htmx.org@1.9.12" integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2XoQrxeTUQyRjrOnlCoYta87iKBWq3EsdM2" crossorigin="anonymous"></script>
 
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 
@@ -43,7 +41,9 @@
 
         <div class="hidden sm:flex items-center gap-6 text-sm font-medium text-gray-600">
           <a href="{% url 'home' %}" class="hover:text-indigo-600 transition-colors">Home</a>
+          {% if user.is_superuser %}
           <a href="{% url 'admin:index' %}" class="hover:text-indigo-600 transition-colors">Admin</a>
+          {% endif %}
         </div>
       </div>
     </div>

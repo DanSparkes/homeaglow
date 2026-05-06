@@ -1,0 +1,33 @@
+{# Standalone swap target for a group's member count + join/leave button. #}
+{# Rendered by group_join_view (is_member=True) and group_leave_view (is_member=False). #}
+{# Also included by group_list.html via hx-target="#membership-{{ group.id }}" outerHTML swap. #}
+<div id="membership-{{ group.id }}"
+     class="flex items-center gap-3 pt-4 mt-4 border-t border-gray-100">
+
+  <span class="text-xs text-gray-400 flex-1">
+    {{ member_count }} member{{ member_count|pluralize }}
+  </span>
+
+  {% if is_member %}
+  <span class="text-xs font-medium px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-full">
+    Member
+  </span>
+  <button hx-post="{% url 'group-leave' group.id %}"
+          hx-target="#membership-{{ group.id }}"
+          hx-swap="outerHTML"
+          class="text-xs font-medium text-gray-500 hover:text-red-600 transition-colors
+                 px-3 py-1.5 border border-gray-200 hover:border-red-200 rounded-lg">
+    Leave
+  </button>
+
+  {% else %}
+  <button hx-post="{% url 'group-join' group.id %}"
+          hx-target="#membership-{{ group.id }}"
+          hx-swap="outerHTML"
+          class="text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700
+                 px-3 py-1.5 rounded-lg transition-colors">
+    Join
+  </button>
+  {% endif %}
+
+</div>

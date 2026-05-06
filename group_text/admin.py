@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
-from .models import User
+from .models import Group, Membership, User
 
 
 @admin.register(User)
@@ -44,3 +44,25 @@ class UserAdmin(DjangoUserAdmin):
             },
         ),
     )
+
+
+@admin.register(Group)
+class GroupAdmin(admin.ModelAdmin):
+    list_display = ("name", "created_by", "proxy_number", "created_at")
+    search_fields = (
+        "name",
+        "proxy_number",
+        "created_by__name",
+        "created_by__phone_number",
+    )
+    ordering = ("-created_at",)
+    raw_id_fields = ("created_by",)
+
+
+@admin.register(Membership)
+class MembershipAdmin(admin.ModelAdmin):
+    list_display = ("user", "group", "is_admin", "joined_at")
+    list_filter = ("is_admin", "joined_at")
+    search_fields = ("user__name", "user__phone_number", "group__name")
+    ordering = ("joined_at",)
+    raw_id_fields = ("user", "group")

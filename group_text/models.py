@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.db import models
@@ -49,3 +52,47 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.name or self.phone_number
+
+
+class Group(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="created_groups",
+    )
+    # Reserved for Twilio proxy number — blank until SMS integration is wired up
+    proxy_number = models.CharField(max_length=20, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    members: models.ManyToManyField[User, Group] = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        through="Membership",
+        related_name="chat_groups",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Membership(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="memberships",
+    )
+    group = models.ForeignKey(
+        Group, on_delete=models.CASCADE, related_name="memberships"
+    )
+    is_admin = models.BooleanField(default=False)
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("user", "group")
+        ordering = ["joined_at"]
+
+    def __str__(self) -> str:
+        return f"{self.user} → {self.group}"
