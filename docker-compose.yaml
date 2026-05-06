@@ -1,0 +1,24 @@
+services:
+  db:
+    image: postgres:17
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=django_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres_pass
+
+  web:
+    build: .
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres_pass@db:5432/django_db
+      - DEBUG=True
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:

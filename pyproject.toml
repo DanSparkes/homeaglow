@@ -1,0 +1,46 @@
+[project]
+name = "group-text"
+dynamic = ["version"]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "django==5.2.14",
+    "django-environ==0.13.0",
+    "psycopg[binary]==3.3.4",
+]
+
+[tool.setuptools.packages.find]
+where = ["group_text"]
+
+[tool.ruff]
+target-version = "py311"
+# Enable Pyflakes and pycodestyle rules.
+lint.select = ["E", "F"]
+
+# Never enforce `E501` (line length violations).
+lint.ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.mypy]
+plugins = [
+    "mypy_django_plugin.main",
+]
+ignore_missing_imports = true
+check_untyped_defs = true
+disallow_untyped_defs = false
+warn_unused_configs = true
+warn_no_return = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unreachable = true
+strict_equality = true
+warn_return_any = true
+
+[tool.django-stubs]
+django_settings_module = "group_text.settings"
+
+[[tool.mypy.overrides]]
+module = ["group_text.migrations.*"]
+ignore_errors = true
