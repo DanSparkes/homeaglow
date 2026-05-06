@@ -441,3 +441,71 @@ class TestGroupLeaveView:
         response = authenticated_client.get(reverse("group-leave", args=[group.id]))
 
         assert response.status_code == 405
+
+
+@pytest.mark.django_db
+class TestTwilioSMSWebhookView:
+    @patch("group_text.views.fan_out_inbound_group_message")
+    @patch("group_text.views.verify_twilio_signature")
+    def test_webhook_view_verifies_signature_and_fans_out(
+        self, mock_verify_signature, mock_fan_out, client
+    ):
+        mock_verify_signature.return_value = True
+
+        response = client.post(
+            reverse("twilio-sms-webhook"),
+            {
+                "From": "+15550000001",
+                "To": "+15559990000",
+                "Body": "Hello group",
+            },
+            HTTP_X_TWILIO_SIGNATURE="valid-signature",
+        )
+
+        assert response.status_code == 200
+        assert response["Content-Type"] == "text/xml"
+        assert response.content.decode() == "<Response></Response>"
+        mock_verify_signature.assert_called_once()
+        mock_fan_out.assert_called_once_with(
+            from_phone_number="+15550000001",
+            to_proxy_number="+15559990000",
+            body="Hello group",
+        )
+
+    @patch("group_text.views.fan_out_inbound_group_message")
+    @patch("group_text.views.verify_twilio_signature")
+    def test_webhook_view_rejects_invalid_signature(
+        self, mock_verify_signature, mock_fan_out, client
+    ):
+        mock_verify_signature.return_value = False
+
+        response = client.post(
+            reverse("twilio-sms-webhook"),
+            {"From": "+15550000001", "To": "+15559990000", "Body": "Hello"},
+            HTTP_X_TWILIO_SIGNATURE="bad-signature",
+        )
+
+        assert response.status_code == 403
+        assert "Invalid Twilio signature." in response.content.decode()
+        mock_fan_out.assert_not_called()
+
+    @patch("group_text.views.fan_out_inbound_group_message")
+    @patch("group_text.views.verify_twilio_signature")
+    def test_webhook_view_is_csrf_exempt(
+        self, mock_verify_signature, mock_fan_out, csrf_client
+    ):
+        mock_verify_signature.return_value = True
+
+        response = csrf_client.post(
+            reverse("twilio-sms-webhook"),
+            {"From": "+15550000001", "To": "+15559990000", "Body": "Hello"},
+            HTTP_X_TWILIO_SIGNATURE="valid-signature",
+        )
+
+        assert response.status_code == 200
+        mock_fan_out.assert_called_once()
+
+    def test_webhook_view_get_not_allowed(self, client):
+        response = client.get(reverse("twilio-sms-webhook"))
+
+        assert response.status_code == 405

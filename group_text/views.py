@@ -7,10 +7,15 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Count, Exists, OuterRef
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET, require_POST
 
-from .models import Group, Membership, User
-from .sms import send_welcome_sms
+from group_text.models import Group, Membership, User
+from group_text.sms import (
+    fan_out_inbound_group_message,
+    send_welcome_sms,
+    verify_twilio_signature,
+)
 
 # ── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -175,3 +180,30 @@ def group_leave_view(request: HttpRequest, group_id: int) -> HttpResponse:
     )
     response["HX-Trigger"] = "membership-changed"
     return response
+
+
+@csrf_exempt
+@require_POST
+def twilio_sms_webhook_view(request: HttpRequest) -> HttpResponse:
+    signature = request.headers.get("X-Twilio-Signature", "")
+    payload = request.POST.dict()
+
+    if not verify_twilio_signature(
+        url=request.build_absolute_uri(request.path),
+        params=payload,
+        signature=signature,
+    ):
+        return HttpResponse("Invalid Twilio signature.", status=403)
+
+    from_phone_number = request.POST.get("From", "").strip()
+    to_proxy_number = request.POST.get("To", "").strip()
+    body = request.POST.get("Body", "")
+
+    if from_phone_number and to_proxy_number:
+        fan_out_inbound_group_message(
+            from_phone_number=from_phone_number,
+            to_proxy_number=to_proxy_number,
+            body=body,
+        )
+
+    return HttpResponse("<Response></Response>", content_type="text/xml")

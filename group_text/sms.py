@@ -1,9 +1,10 @@
 import logging
 
 from django.conf import settings
+from twilio.request_validator import RequestValidator
 from twilio.rest import Client
 
-from group_text.models import Group, User
+from group_text.models import Group, Membership, User
 
 logger = logging.getLogger(__name__)
 
@@ -49,3 +50,61 @@ def send_welcome_sms(*, user: "User", group: "Group") -> str | None:
         body=build_welcome_sms_body(user=user, group=group),
         from_phone_number=group.proxy_number or None,
     )
+
+
+def verify_twilio_signature(
+    *, url: str, params: dict[str, str], signature: str
+) -> bool:
+    if not settings.TWILIO_AUTH_TOKEN or not signature:
+        return False
+
+    validator = RequestValidator(settings.TWILIO_AUTH_TOKEN)
+    return bool(validator.validate(url, params, signature))
+
+
+def build_group_message_body(*, sender: "User", body: str) -> str:
+    return f"{sender.name}: {body.strip()}"
+
+
+def fan_out_inbound_group_message(
+    *,
+    from_phone_number: str,
+    to_proxy_number: str,
+    body: str,
+) -> int:
+    cleaned_body = body.strip()
+    if not cleaned_body:
+        return 0
+
+    group = Group.objects.filter(proxy_number=to_proxy_number).first()
+    if group is None:
+        return 0
+
+    membership = (
+        Membership.objects.select_related("user")
+        .filter(
+            group=group,
+            user__phone_number=from_phone_number,
+        )
+        .first()
+    )
+    if membership is None:
+        return 0
+
+    sender = membership.user
+    outbound_body = build_group_message_body(sender=sender, body=cleaned_body)
+    recipient_phone_numbers = group.members.exclude(
+        phone_number=from_phone_number
+    ).values_list("phone_number", flat=True)
+
+    sent_count = 0
+    for recipient_phone_number in recipient_phone_numbers:
+        sid = send_sms(
+            to_phone_number=recipient_phone_number,
+            body=outbound_body,
+            from_phone_number=group.proxy_number or None,
+        )
+        if sid is not None:
+            sent_count += 1
+
+    return sent_count
