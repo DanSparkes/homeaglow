@@ -10,6 +10,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
 from .models import Group, Membership, User
+from .sms import send_welcome_sms
 
 # ── Auth ─────────────────────────────────────────────────────────────────────
 
@@ -145,7 +146,9 @@ def group_create_view(request: HttpRequest) -> HttpResponse:
 def group_join_view(request: HttpRequest, group_id: int) -> HttpResponse:
     group = get_object_or_404(Group, id=group_id)
     user = cast(User, request.user)
-    Membership.objects.get_or_create(user=user, group=group)
+    _, created = Membership.objects.get_or_create(user=user, group=group)
+    if created:
+        send_welcome_sms(user=user, group=group)
     member_count = group.members.count()
 
     response = render(

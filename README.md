@@ -17,3 +17,13 @@ Since this is SMS based, I wanted to move from the standard username login, so p
 For this proof of concept, I went with HTMX and Alpine.js instead of a heavy SPA. It kept things lean by letting me skip the overhead of managing a separate JSON API and a complex JavaScript build pipeline. Since the backend handles the UI state through server-side rendering, I could ship the core features without the boilerplate of a full frontend framework.
 
 While this setup is perfect for speed and simplicity right now, the plan for an enterprise-scale version is to split the frontend into its own dedicated project. Decoupling would allow for more specialized scaling, better team autonomy, and a more robust interface once the initial concept is proven.
+
+Twilio setup:
+
+Add the following variables to the root `.env` file before sending real SMS messages:
+
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_PHONE_NUMBER`
+
+When a user joins a group for the first time, the app now sends a welcome SMS through the configured Twilio number. Repeat joins stay idempotent and do not send duplicate welcome texts.

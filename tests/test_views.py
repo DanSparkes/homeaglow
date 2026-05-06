@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 from django.urls import reverse
 
@@ -339,8 +341,9 @@ class TestGroupCreateView:
 
 @pytest.mark.django_db
 class TestGroupJoinView:
+    @patch("group_text.views.send_welcome_sms")
     def test_group_join_view_creates_membership_and_returns_partial(
-        self, authenticated_client, group, user
+        self, mock_send_welcome_sms, authenticated_client, group, user
     ):
         # Happy path: joining creates a membership and returns the updated card section.
         response = authenticated_client.post(reverse("group-join", args=[group.id]))
@@ -353,9 +356,11 @@ class TestGroupJoinView:
         assert "Member" in content
         assert "Leave" in content
         assert "1 member" in content
+        mock_send_welcome_sms.assert_called_once_with(user=user, group=group)
 
+    @patch("group_text.views.send_welcome_sms")
     def test_group_join_view_is_idempotent_for_existing_member(
-        self, authenticated_client, member_group, user
+        self, mock_send_welcome_sms, authenticated_client, member_group, user
     ):
         # Edge case: repeated joins should not create duplicate through rows.
         response = authenticated_client.post(
@@ -364,6 +369,7 @@ class TestGroupJoinView:
 
         assert response.status_code == 200
         assert Membership.objects.filter(user=user, group=member_group).count() == 1
+        mock_send_welcome_sms.assert_not_called()
 
     def test_group_join_view_returns_404_for_missing_group(self, authenticated_client):
         # Edge case: invalid identifiers should produce a 404.
