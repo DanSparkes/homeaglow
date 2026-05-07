@@ -4,7 +4,7 @@ from django.conf import settings
 from twilio.request_validator import RequestValidator
 from twilio.rest import Client
 
-from group_text.models import Group, Membership, User
+from group_text.models import Group, Membership, Message, User
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +66,30 @@ def build_group_message_body(*, sender: "User", body: str) -> str:
     return f"{sender.name}: {body.strip()}"
 
 
+def persist_and_fan_out_group_message(*, group: Group, sender: User, body: str) -> int:
+    cleaned_body = body.strip()
+    if not cleaned_body:
+        return 0
+
+    Message.objects.create(group=group, sender=sender, body=cleaned_body)
+    outbound_body = build_group_message_body(sender=sender, body=cleaned_body)
+    recipient_phone_numbers = group.members.exclude(
+        phone_number=sender.phone_number
+    ).values_list("phone_number", flat=True)
+
+    sent_count = 0
+    for recipient_phone_number in recipient_phone_numbers:
+        sid = send_sms(
+            to_phone_number=recipient_phone_number,
+            body=outbound_body,
+            from_phone_number=group.proxy_number or None,
+        )
+        if sid is not None:
+            sent_count += 1
+
+    return sent_count
+
+
 def fan_out_inbound_group_message(
     *,
     from_phone_number: str,
@@ -91,20 +115,8 @@ def fan_out_inbound_group_message(
     if membership is None:
         return 0
 
-    sender = membership.user
-    outbound_body = build_group_message_body(sender=sender, body=cleaned_body)
-    recipient_phone_numbers = group.members.exclude(
-        phone_number=from_phone_number
-    ).values_list("phone_number", flat=True)
-
-    sent_count = 0
-    for recipient_phone_number in recipient_phone_numbers:
-        sid = send_sms(
-            to_phone_number=recipient_phone_number,
-            body=outbound_body,
-            from_phone_number=group.proxy_number or None,
-        )
-        if sid is not None:
-            sent_count += 1
-
-    return sent_count
+    return persist_and_fan_out_group_message(
+        group=group,
+        sender=membership.user,
+        body=cleaned_body,
+    )

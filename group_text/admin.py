@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 
-from .models import Group, Membership, User
+from .models import Group, Membership, Message, User
 
 
 @admin.register(User)
@@ -57,6 +57,19 @@ class GroupAdmin(admin.ModelAdmin):
     )
     ordering = ("-created_at",)
     raw_id_fields = ("created_by",)
+
+
+@admin.register(Message)
+class MessageAdmin(admin.ModelAdmin):
+    list_display = ("group", "sender", "created_at")
+    search_fields = (
+        "group__name",
+        "sender__name",
+        "sender__phone_number",
+        "body",
+    )
+    ordering = ("-created_at",)
+    raw_id_fields = ("group", "sender")
 
 
 @admin.register(Membership)

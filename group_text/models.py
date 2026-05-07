@@ -96,3 +96,20 @@ class Membership(models.Model):
 
     def __str__(self) -> str:
         return f"{self.user} → {self.group}"
+
+
+class Message(models.Model):
+    group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="messages")
+    sender = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="sent_messages",
+    )
+    body = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.sender} in {self.group}: {self.body[:30]}"

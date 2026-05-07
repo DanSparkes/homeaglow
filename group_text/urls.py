@@ -14,6 +14,11 @@ urlpatterns = [
     path("groups/<int:group_id>/join/", views.group_join_view, name="group-join"),
     path("groups/<int:group_id>/leave/", views.group_leave_view, name="group-leave"),
     path(
+        "groups/<int:group_id>/messages/send/",
+        views.group_send_message_view,
+        name="group-send-message",
+    ),
+    path(
         "webhooks/twilio/sms/", views.twilio_sms_webhook_view, name="twilio-sms-webhook"
     ),
 ]

@@ -29,6 +29,8 @@
       {% include "group_text/partials/membership_section.html" %}
     {% endwith %}
 
+    {% include "group_text/partials/chat_section.html" with is_member=group.is_member %}
+
   </li>
   {% endfor %}
 </ul>

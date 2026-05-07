@@ -16,7 +16,8 @@
        $refs.groupNameInput.value = '';
        document.getElementById('create-feedback').innerHTML = '';
        htmx.trigger($refs.groupList, 'refresh');
-     ">
+  "
+  @membership-changed.window="htmx.trigger($refs.groupList, 'refresh')">
 
   {# ── Page header ──────────────────────────────────────────────────────── #}
   <div class="flex flex-wrap items-center justify-between gap-3 mb-8">

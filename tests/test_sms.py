@@ -3,11 +3,12 @@ from unittest.mock import Mock, patch
 import pytest
 from django.test import override_settings
 
-from group_text.models import Group, Membership
+from group_text.models import Group, Membership, Message
 from group_text.sms import (
     build_group_message_body,
     build_welcome_sms_body,
     fan_out_inbound_group_message,
+    persist_and_fan_out_group_message,
     send_sms,
     send_welcome_sms,
     verify_twilio_signature,
@@ -124,6 +125,9 @@ class TestSMSHelpers:
         )
 
         assert sent_count == 1
+        persisted_message = Message.objects.get(group=group)
+        assert persisted_message.sender == user
+        assert persisted_message.body == "Hello team"
         mock_send_sms.assert_called_once_with(
             to_phone_number=other_user.phone_number,
             body=build_group_message_body(sender=user, body="Hello team"),
@@ -148,4 +152,34 @@ class TestSMSHelpers:
         )
 
         assert sent_count == 0
+        assert Message.objects.count() == 0
         mock_send_sms.assert_not_called()
+
+    @patch("group_text.sms.send_sms")
+    def test_persist_and_fan_out_group_message_reuses_converged_path(
+        self, mock_send_sms, user, other_user
+    ):
+        group = Group.objects.create(
+            name="Web Origin Group",
+            created_by=user,
+            proxy_number="+15559990010",
+        )
+        Membership.objects.create(user=user, group=group, is_admin=True)
+        Membership.objects.create(user=other_user, group=group)
+        mock_send_sms.return_value = "SM999"
+
+        sent_count = persist_and_fan_out_group_message(
+            group=group,
+            sender=user,
+            body="Browser sent message",
+        )
+
+        assert sent_count == 1
+        persisted_message = Message.objects.get(group=group)
+        assert persisted_message.sender == user
+        assert persisted_message.body == "Browser sent message"
+        mock_send_sms.assert_called_once_with(
+            to_phone_number=other_user.phone_number,
+            body=build_group_message_body(sender=user, body="Browser sent message"),
+            from_phone_number=group.proxy_number,
+        )

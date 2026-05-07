@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 from django.urls import reverse
 
-from group_text.models import Group, Membership, User
+from group_text.models import Group, Membership, Message, User
 
 
 @pytest.mark.django_db
@@ -439,6 +439,82 @@ class TestGroupLeaveView:
     def test_group_leave_view_get_not_allowed(self, authenticated_client, group):
         # Edge case: the endpoint is POST-only.
         response = authenticated_client.get(reverse("group-leave", args=[group.id]))
+
+        assert response.status_code == 405
+
+
+@pytest.mark.django_db
+class TestGroupSendMessageView:
+    @patch("group_text.sms.send_sms")
+    def test_group_send_message_persists_and_fans_out(
+        self, mock_send_sms, authenticated_client, member_group, user, other_user
+    ):
+        member_group.proxy_number = "+15559998888"
+        member_group.save(update_fields=["proxy_number"])
+        mock_send_sms.return_value = "SM123"
+
+        response = authenticated_client.post(
+            reverse("group-send-message", args=[member_group.id]),
+            {"body": "Are we still meeting at 5?"},
+        )
+
+        assert response.status_code == 200
+        message = Message.objects.get(group=member_group)
+        assert message.sender == user
+        assert message.body == "Are we still meeting at 5?"
+        mock_send_sms.assert_called_once_with(
+            to_phone_number=other_user.phone_number,
+            body=f"{user.name}: Are we still meeting at 5?",
+            from_phone_number=member_group.proxy_number,
+        )
+        assert "Message sent to 1 member" in response.content.decode()
+
+    @patch("group_text.views.persist_and_fan_out_group_message")
+    def test_group_send_message_rejects_blank_body(
+        self, mock_persist_and_fan_out, authenticated_client, member_group
+    ):
+        response = authenticated_client.post(
+            reverse("group-send-message", args=[member_group.id]),
+            {"body": "   "},
+        )
+
+        assert response.status_code == 400
+        assert "Message cannot be empty." in response.content.decode()
+        mock_persist_and_fan_out.assert_not_called()
+
+    @patch("group_text.views.persist_and_fan_out_group_message")
+    def test_group_send_message_requires_membership(
+        self, mock_persist_and_fan_out, authenticated_client, group
+    ):
+        response = authenticated_client.post(
+            reverse("group-send-message", args=[group.id]),
+            {"body": "Hello"},
+        )
+
+        assert response.status_code == 403
+        assert "Join this group before sending messages." in response.content.decode()
+        mock_persist_and_fan_out.assert_not_called()
+
+    def test_group_send_message_redirects_unauthenticated_user(
+        self, client, member_group
+    ):
+        response = client.post(
+            reverse("group-send-message", args=[member_group.id]),
+            {"body": "Hello"},
+        )
+
+        assert response.status_code == 302
+        assert (
+            response.url
+            == f"{reverse('login')}?next={reverse('group-send-message', args=[member_group.id])}"
+        )
+
+    def test_group_send_message_get_not_allowed(
+        self, authenticated_client, member_group
+    ):
+        response = authenticated_client.get(
+            reverse("group-send-message", args=[member_group.id])
+        )
 
         assert response.status_code == 405
 

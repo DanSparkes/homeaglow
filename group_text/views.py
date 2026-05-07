@@ -13,6 +13,7 @@ from django.views.decorators.http import require_GET, require_POST
 from group_text.models import Group, Membership, User
 from group_text.sms import (
     fan_out_inbound_group_message,
+    persist_and_fan_out_group_message,
     send_welcome_sms,
     verify_twilio_signature,
 )
@@ -180,6 +181,44 @@ def group_leave_view(request: HttpRequest, group_id: int) -> HttpResponse:
     )
     response["HX-Trigger"] = "membership-changed"
     return response
+
+
+@login_required
+@require_POST
+def group_send_message_view(request: HttpRequest, group_id: int) -> HttpResponse:
+    group = get_object_or_404(Group, id=group_id)
+    user = cast(User, request.user)
+    body = request.POST.get("body", "")
+
+    is_member = Membership.objects.filter(user=user, group=group).exists()
+    if not is_member:
+        return HttpResponse(
+            '<p class="text-red-500 text-xs mt-2">Join this group before sending messages.</p>',
+            status=403,
+        )
+
+    if not body.strip():
+        return render(
+            request,
+            "group_text/partials/chat_section.html",
+            {
+                "group": group,
+                "is_member": True,
+                "error": "Message cannot be empty.",
+            },
+            status=400,
+        )
+
+    sent_count = persist_and_fan_out_group_message(group=group, sender=user, body=body)
+    return render(
+        request,
+        "group_text/partials/chat_section.html",
+        {
+            "group": group,
+            "is_member": True,
+            "sent_count": sent_count,
+        },
+    )
 
 
 @csrf_exempt
